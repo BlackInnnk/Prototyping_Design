@@ -31,7 +31,7 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 // Make sure to update your lightid value below with the one you have been allocated
-String lightId = "1"; // the topic id number or user number being used.
+String lightId = "7"; // the topic id number or user number being used.
 
 // Here we define the MQTT topic we will be publishing data to
 String mqtt_topic = "student/CASA0014/luminaire/" + lightId;            
