@@ -5,7 +5,6 @@
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
-#include "arduino_secrets.h" 
 #include <utility/wifi_drv.h>   // library to drive to RGB LED on the MKR1010
 
 /*
@@ -16,12 +15,12 @@
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
  */
-const char* ssid          = SECRET_SSID;
-const char* password      = SECRET_PASS;
-const char* ssid1         = SECRET_SSID1;
-const char* password1     = SECRET_PASS1;
-const char* mqtt_username = SECRET_MQTTUSER;
-const char* mqtt_password = SECRET_MQTTPASS;
+const char* ssid          = "CE-Hub-Student";
+const char* password      = "casa-ce-gagarin-public-service";
+const char* ssid1         = "Hyperoptic Fibre 3343 5GHz";
+const char* password1     = "icdkxfNjhpK4F3";
+const char* mqtt_username = "student";
+const char* mqtt_password = "ce2021-mqtt-forget-whale";
 const char* mqtt_server   = "mqtt.cetools.org";
 const int mqtt_port       = 1884;
 
