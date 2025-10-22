@@ -6,6 +6,8 @@
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
 #include <utility/wifi_drv.h>   // library to drive to RGB LED on the MKR1010
+#include <Wire.h>
+#include <BH1750.h>
 
 /*
 **** please enter your sensitive data in the Secret tab/arduino_secrets.h
