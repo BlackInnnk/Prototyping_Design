@@ -51,6 +51,13 @@ void setup() {
   //while (!Serial); // Wait for serial port to connect (useful for debugging)
   Serial.println("Vespera");
 
+  Wire.begin();
+  delay(200);
+  // Try both possible addresses (0x23 default, 0x5C if ADD=VCC)
+  bool ok = lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23);
+  if(!ok) ok = lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x5C);
+  Serial.println(ok ? "BH1750 ready." : "BH1750 init failed.");
+
 
   // print your MAC address:
   byte mac[6];
@@ -87,14 +94,7 @@ void loop() {
 
 
 
-  for(int n=0; n<num_leds; n++){
-    send_all_off();
-    delay(100);
-    send_RGB_to_pixel(0,250,0,n);
-    delay(200);
-  }
 
-  delay(1000);
 }
 
 // Function to update the R, G, B values of a single LED pixel
