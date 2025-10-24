@@ -83,7 +83,20 @@ void loop() {
   // keep mqtt alive
   mqttClient.loop();
 
-
+  static float ema=-1; static uint8_t last=255; static unsigned long lastMs=0;
+  float lux = lightMeter.readLightLevel();
+  if (lux >= 0) {
+    if (ema < 0) ema = lux;
+    ema = 0.2f*lux + 0.8f*ema;
+    float c = constrain(ema, 1.0f, 2000.0f);
+    uint8_t br = (uint8_t)map((int)c, 1, 2000, 255, 20);
+    // only publish when changed AND throttled
+    if (abs((int)br - (int)last) >= 4 && (millis()-lastMs)>120) {
+      for (int p=0;p<num_leds;p++){ RGBpayload[p*3]=br; RGBpayload[p*3+1]=0; RGBpayload[p*3+2]=0; }
+      mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size);
+      last=br; lastMs=millis();
+    }
+}
 
 
 
