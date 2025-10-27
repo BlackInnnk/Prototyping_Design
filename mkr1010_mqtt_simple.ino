@@ -8,6 +8,7 @@
 #include <utility/wifi_drv.h>   // library to drive to RGB LED on the MKR1010
 #include <Wire.h>
 #include <BH1750.h>
+#include <math.h>
 BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
 
 /*
@@ -47,9 +48,31 @@ const int payload_size = num_leds * 3; // x3 for RGB
 // in memory so that they can be accessed in for example the rainbow function
 byte RGBpayload[payload_size];
 
+// Convert HSV to 8-bit RGB
+void hsvToRgb(float h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b){
+  while (h < 0)        h += 360.0f;
+  while (h >= 360.0f)  h -= 360.0f;
+  if (s <= 0.0f){ // gray
+    uint8_t x = (uint8_t)(v * 255.0f);
+    r = g = b = x;
+    return;
+  }
+  float c = v * s;
+  float x = c * (1 - fabsf(fmodf(h/60.0f, 2.0f) - 1));
+  float m = v - c;
+  float rp, gp, bp;
+  if      (h < 60)  { rp=c; gp=x; bp=0; }
+  else if (h < 120) { rp=x; gp=c; bp=0; }
+  else if (h < 180) { rp=0; gp=c; bp=x; }
+  else if (h < 240) { rp=0; gp=x; bp=c; }
+  else if (h < 300) { rp=x; gp=0; bp=c; }
+  else              { rp=c; gp=0; bp=x; }
+  r = (uint8_t)((rp + m) * 255.0f);
+  g = (uint8_t)((gp + m) * 255.0f);
+  b = (uint8_t)((bp + m) * 255.0f);
+}
+
 float luxEMA = -1.0;                 // Exponential Moving Average
-uint8_t lastBr = 255;                 // Last bright
-unsigned long lastSend = 0;           // Last time
 const float ALPHA = 0.80;             // Smoothing
 const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 
@@ -57,19 +80,18 @@ const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 const int PIN_BTN = 7;  // pin7
 enum Mode {
   MODE_A_LUX_RED,   // red light
-  MODE_G_CHASE,     // chase light
+  MODE_G_LOOP,     // loop light
   MODE_F_OFF        // turn off
 };
 Mode modeNow = MODE_A_LUX_RED;
 
-bool btnLast = true;  // High->Pressed low
+bool btnLast = true;  // pressed = LOW
 unsigned long btnTs = 0;
 const unsigned long DEBOUNCE = 50; //ms
 
-// Chase animation
-int chasePos = 0; 
-unsigned long lastStep = 0;
-const unsigned long CHASE_MS = 80;   // the speed of  light
+// Gradient animation (G)
+const uint32_t HUE_CYCLE_MS = 10000;   // time for 1 coulor loop
+
 
 
 void setup() {
@@ -88,9 +110,9 @@ void setup() {
   }
   send_all_off(); //turn off all the light after open
 
-  pinMode(PIN_BTN, INPUT_PULLUP);
 
 
+  
 
   // print your MAC address:
   byte mac[6];
@@ -132,7 +154,7 @@ void loop() {
       modeNow = (Mode)((modeNow + 1) % 3);         // A G F three modes
       Serial.print("Mode -> ");
       Serial.println(modeNow==MODE_A_LUX_RED ? "A (Lux Red)"
-                    : modeNow==MODE_G_CHASE ? "G (Chase)" : "F (Off)");
+                    : modeNow==MODE_G_LOOP ? "G (Loop)" : "F (Off)");
     }
   }
   btnLast = now;
@@ -182,19 +204,27 @@ void loop() {
         RGBpayload[p*3+2] = 0;
       }
     }
-    else { // MODE_G_CHASE
-      // G: red light chase
-      if (millis() - lastStep >= CHASE_MS) {
-        lastStep = millis();
-        chasePos = (chasePos + 1) % num_leds;
-      }
-      for (int p=0; p<num_leds; ++p) {
-        bool on = (p == chasePos);
-        RGBpayload[p*3+0] = on ? r : 0;            //clean background
-        RGBpayload[p*3+1] = on ? g : 0;
-        RGBpayload[p*3+2] = on ? b : 0;
+    else { // MODE_G_LOOP
+      // colour loop
+      float hue = fmodf((millis() % HUE_CYCLE_MS) * (360.0f / HUE_CYCLE_MS), 360.0f);
+
+      // Convert HSV to RGB
+      uint8_t R, G, B;
+      hsvToRgb(hue, 1.0f, 1.0f, R, G, B);
+
+      // Scale by environment brightness
+      uint8_t rU = (uint8_t)((uint16_t)R * br / 255);
+      uint8_t gU = (uint8_t)((uint16_t)G * br / 255);
+      uint8_t bU = (uint8_t)((uint16_t)B * br / 255);
+
+      // Fill  color
+      for (int p = 0; p < num_leds; ++p) {
+        RGBpayload[p*3 + 0] = rU;
+        RGBpayload[p*3 + 1] = gU;
+        RGBpayload[p*3 + 2] = bU;
       }
     }
+
 
     // Publish 
     if (mqttClient.connected()) {
@@ -245,23 +275,6 @@ void send_all_off() {
   }
 }
 
-void send_all_random() {
-  // Check if the mqttClient is connected before publishing
-  if (mqttClient.connected()) {
-    // Fill the byte array with the specified RGB color pattern
-    for(int pixel=0; pixel < num_leds; pixel++){
-      RGBpayload[pixel * 3 + 0] = (byte)random(50,256); // Red - 256 is exclusive, so it goes up to 255
-      RGBpayload[pixel * 3 + 1] = (byte)random(50,256); // Green
-      RGBpayload[pixel * 3 + 2] = (byte)random(50,256); // Blue
-    }
-    // Publish the byte array
-    mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size);
-    
-    Serial.println("Published an all random byte array.");
-  } else {
-    Serial.println("MQTT mqttClient not connected, cannot publish from *send_all_random*.");
-  }
-}
 
 void printMacAddress(byte mac[]) {
   for (int i = 5; i >= 0; i--) {
