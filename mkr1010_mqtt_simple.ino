@@ -80,7 +80,11 @@ const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 const int PIN_BTN = 7;  // pin7
 enum Mode {
   MODE_A_LUX_RED,   // red light
-  MODE_G_LOOP,     // loop light
+  MODE_B_R_SWEEP,   // red sweep
+  MODE_C_G_SWEEP,   // green sweep
+  MODE_D_B_SWEEP,   // blue sweep
+  MODE_E_LAYER,     // layer brightness
+  MODE_G_LOOP,      // RGB color loop
   MODE_F_OFF        // turn off
 };
 Mode modeNow = MODE_A_LUX_RED;
@@ -151,10 +155,17 @@ void loop() {
   if (now != btnLast && millis() - btnTs > DEBOUNCE) {
     btnTs = millis();
     if (now == false && btnLast == true) {         // detect button release
-      modeNow = (Mode)((modeNow + 1) % 3);         // A G F three modes
+      modeNow = (Mode)((modeNow + 1) % 3);         // three modes
       Serial.print("Mode -> ");
-      Serial.println(modeNow==MODE_A_LUX_RED ? "A (Lux Red)"
-                    : modeNow==MODE_G_LOOP ? "G (Loop)" : "F (Off)");
+      switch (modeNow) {
+        case MODE_A_LUX_RED: Serial.println("A (Lux Red)"); break;
+        case MODE_B_R_SWEEP: Serial.println("B (Red Sweep)"); break;
+        case MODE_C_G_SWEEP: Serial.println("C (Green Sweep)"); break;
+        case MODE_D_B_SWEEP: Serial.println("D (Blue Sweep)"); break;
+        case MODE_E_LAYER:   Serial.println("E (Layer)"); break;
+        case MODE_G_LOOP:    Serial.println("G (RGB Loop)"); break;
+        case MODE_F_OFF:     Serial.println("F (Off)"); break;
+      }
     }
   }
   btnLast = now;
@@ -204,6 +215,7 @@ void loop() {
         RGBpayload[p*3+2] = 0;
       }
     }
+
     else { // MODE_G_LOOP
       // colour loop
       float hue = fmodf((millis() % HUE_CYCLE_MS) * (360.0f / HUE_CYCLE_MS), 360.0f);
