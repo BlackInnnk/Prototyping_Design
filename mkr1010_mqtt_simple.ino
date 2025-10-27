@@ -53,6 +53,10 @@ unsigned long lastSend = 0;           // Last time
 const float ALPHA = 0.80;             // Smoothing
 const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 
+// Button!!!
+const int PIN_BTN = 7;  // pin7
+
+
 
 void setup() {
   Serial.begin(115200);
@@ -67,6 +71,8 @@ void setup() {
     Serial.println("BH1750 ready (LOW_RES).");
   }
   send_all_off(); //turn off all the light after open
+
+  pinMode(PIN_BTN, INPUT_PULLUP);
 
 
 
