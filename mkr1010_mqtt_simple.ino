@@ -109,8 +109,8 @@ void loop() {
     luxEMA = ALPHA * lux + (1.0f - ALPHA) * luxEMA;
 
     // brightness range (1~2000 lux → 255~20)
-    float clamped = constrain(luxEMA, 1.0f, 2000.0f);
-    uint8_t br = (uint8_t)constrain(map((int)clamped, 1, 2000, 255, 20), 0, 255);
+    float clamped = constrain(luxEMA, 1.0f, 1000.0f);
+    uint8_t br = (uint8_t)constrain(map((int)clamped, 1, 2000, 255, 5), 0, 255);
 
     // only update when bright and time change enough
     if (abs((int)br - (int)lastBr) >= 4 && (millis() - lastSend) > 120) {
