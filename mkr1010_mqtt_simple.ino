@@ -8,7 +8,7 @@
 #include <utility/wifi_drv.h>   // library to drive to RGB LED on the MKR1010
 #include <Wire.h>
 #include <BH1750.h>
-BH1750 lightMeter(BH1750::CONTINUOUS_HIGH_RES_MODE);
+BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
 
 /*
 **** please enter your sensitive data in the Secret tab/arduino_secrets.h
@@ -50,7 +50,7 @@ byte RGBpayload[payload_size];
 float luxEMA = -1.0;                 // Exponential Moving Average
 uint8_t lastBr = 255;                 // Last bright
 unsigned long lastSend = 0;           // Last time
-const float ALPHA = 0.20;             // Smoothing
+const float ALPHA = 0.80;             // Smoothing
 const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 
 
@@ -63,7 +63,8 @@ void setup() {
   if (!lightMeter.begin()) {
     Serial.println("BH1750 init failed, check wiring.");
   } else {
-    Serial.println("BH1750 ready.");
+    lightMeter.configure(BH1750::CONTINUOUS_LOW_RES_MODE); // change quickly
+    Serial.println("BH1750 ready (LOW_RES).");
   }
   send_all_off(); //turn off all the light after open
 
@@ -102,21 +103,28 @@ void loop() {
   mqttClient.loop();
 
   //change brightness with the lightness
-  float lux = lightMeter.readLightLevel(); // if <0, fail
-  if (lux >= 0) {
-    // Exponential smoothing
-    if (luxEMA < 0) luxEMA = lux;
-    luxEMA = ALPHA * lux + (1.0f - ALPHA) * luxEMA;
+  static unsigned long lastFrame = 0;
+  const unsigned long FRAME_MS = 80;  // send every 80ms
 
-    // Map 1~800 lx to 0~1, dark -> high value
-    float Lmin=1.0f, Lmax=800.0f;                     // more sensitive
-    float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
-    float gamma = 0.7f;
-    uint8_t br = (uint8_t)constrain((int)(255.0f * powf(x, gamma)), 0, 255);
+  if (millis() - lastFrame >= FRAME_MS) {
+    lastFrame = millis();
+
+    float lux = lightMeter.readLightLevel(); // if <0, then fail
+    if (lux >= 0) {
+      // Smooth out
+      if (luxEMA < 0) luxEMA = lux;
+      float delta = fabsf(lux - luxEMA);
+      float a = (delta > 60.0f) ? 0.95f : 0.80f;   // use 0.8 only if samll change
+      luxEMA = a*lux + (1.0f - a)*luxEMA;
+
+      // Map 1~800 lx to 0~1, dark->high value
+      float Lmin=1.0f, Lmax=800.0f;                     // more sensitive
+      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+      float gamma = 0.7f;
+      uint8_t br = (uint8_t)constrain((int)(255.0f * powf(x, gamma)), 0, 255);
 
 
-    // only update when bright and time change enough
-    if (abs((int)br - (int)lastBr) >= 4 && (millis() - lastSend) > 120) {
+      // make all led same colour
       uint16_t r = (uint16_t)BASE_R * br / 255;
       uint16_t g = (uint16_t)BASE_G * br / 255;
       uint16_t b = (uint16_t)BASE_B * br / 255;
@@ -126,16 +134,15 @@ void loop() {
         RGBpayload[p*3 + 1] = (byte)g;
         RGBpayload[p*3 + 2] = (byte)b;
       }
+
       if (mqttClient.connected()) {
-        mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size);
+        mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size, true);
       }
-      lastBr = br;
-      lastSend = millis();
 
     }
   }
-  delay(20);
 
+  delay(10);
 
 
 
