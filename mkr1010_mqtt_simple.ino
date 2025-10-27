@@ -8,6 +8,7 @@
 #include <utility/wifi_drv.h>   // library to drive to RGB LED on the MKR1010
 #include <Wire.h>
 #include <BH1750.h>
+BH1750 lightMeter(BH1750::CONTINUOUS_HIGH_RES_MODE);
 
 /*
 **** please enter your sensitive data in the Secret tab/arduino_secrets.h
@@ -17,10 +18,10 @@
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
  */
-const char* ssid          = "CE-Hub-Student";
-const char* password      = "casa-ce-gagarin-public-service";
-const char* ssid1         = "Hyperoptic Fibre 3343 5GHz";
-const char* password1     = "icdkxfNjhpK4F3";
+// const char* ssid          = "CE-Hub-Student";
+// const char* password      = "casa-ce-gagarin-public-service";
+const char* ssid         = "Hyperoptic Fibre 3343 5GHz";
+const char* password     = "icdkxfNjhpK4F3";
 const char* mqtt_username = "student";
 const char* mqtt_password = "ce2021-mqtt-forget-whale";
 const char* mqtt_server   = "mqtt.cetools.org";
@@ -46,10 +47,26 @@ const int payload_size = num_leds * 3; // x3 for RGB
 // in memory so that they can be accessed in for example the rainbow function
 byte RGBpayload[payload_size];
 
+float luxEMA = -1.0;                 // Exponential Moving Average
+uint8_t lastBr = 255;                 // Last bright
+unsigned long lastSend = 0;           // Last time
+const float ALPHA = 0.20;             // Smoothing
+const uint8_t BASE_R=255, BASE_G=200, BASE_B=120;  //white
+
 void setup() {
   Serial.begin(115200);
   //while (!Serial); // Wait for serial port to connect (useful for debugging)
   Serial.println("Vespera");
+
+  Wire.begin();
+  if (!lightMeter.begin()) {
+    Serial.println("BH1750 init failed, check wiring.");
+  } else {
+    Serial.println("BH1750 ready.");
+  }
+  send_all_off(); //turn off all the light after open
+
+
 
   // print your MAC address:
   byte mac[6];
@@ -83,20 +100,38 @@ void loop() {
   // keep mqtt alive
   mqttClient.loop();
 
-  static float ema=-1; static uint8_t last=255; static unsigned long lastMs=0;
-  float lux = lightMeter.readLightLevel();
+  //change brightness with the lightness
+  float lux = lightMeter.readLightLevel(); // if <0, fail
   if (lux >= 0) {
-    if (ema < 0) ema = lux;
-    ema = 0.2f*lux + 0.8f*ema;
-    float c = constrain(ema, 1.0f, 2000.0f);
-    uint8_t br = (uint8_t)map((int)c, 1, 2000, 255, 20);
-    // only publish when changed AND throttled
-    if (abs((int)br - (int)last) >= 4 && (millis()-lastMs)>120) {
-      for (int p=0;p<num_leds;p++){ RGBpayload[p*3]=br; RGBpayload[p*3+1]=0; RGBpayload[p*3+2]=0; }
-      mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size);
-      last=br; lastMs=millis();
+    // Exponential smoothing
+    if (luxEMA < 0) luxEMA = lux;
+    luxEMA = ALPHA * lux + (1.0f - ALPHA) * luxEMA;
+
+    // brightness range (1~2000 lux → 255~20)
+    float clamped = constrain(luxEMA, 1.0f, 2000.0f);
+    uint8_t br = (uint8_t)constrain(map((int)clamped, 1, 2000, 255, 20), 0, 255);
+
+    // only update when bright and time change enough
+    if (abs((int)br - (int)lastBr) >= 4 && (millis() - lastSend) > 120) {
+      uint16_t r = (uint16_t)BASE_R * br / 255;
+      uint16_t g = (uint16_t)BASE_G * br / 255;
+      uint16_t b = (uint16_t)BASE_B * br / 255;
+
+      for (int p = 0; p < num_leds; p++) {
+        RGBpayload[p*3 + 0] = (byte)r;
+        RGBpayload[p*3 + 1] = (byte)g;
+        RGBpayload[p*3 + 2] = (byte)b;
+      }
+      if (mqttClient.connected()) {
+        mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size);
+      }
+      lastBr = br;
+      lastSend = millis();
+
     }
-}
+  }
+  delay(20);
+
 
 
 
