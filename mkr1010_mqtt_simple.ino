@@ -18,10 +18,10 @@ BH1750 lightMeter(BH1750::CONTINUOUS_HIGH_RES_MODE);
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
  */
-// const char* ssid          = "CE-Hub-Student";
-// const char* password      = "casa-ce-gagarin-public-service";
-const char* ssid         = "Hyperoptic Fibre 3343 5GHz";
-const char* password     = "icdkxfNjhpK4F3";
+const char* ssid          = "CE-Hub-Student";
+const char* password      = "casa-ce-gagarin-public-service";
+const char* ssid1         = "Hyperoptic Fibre 3343 5GHz";
+const char* password1     = "icdkxfNjhpK4F3";
 const char* mqtt_username = "student";
 const char* mqtt_password = "ce2021-mqtt-forget-whale";
 const char* mqtt_server   = "mqtt.cetools.org";
@@ -51,7 +51,8 @@ float luxEMA = -1.0;                 // Exponential Moving Average
 uint8_t lastBr = 255;                 // Last bright
 unsigned long lastSend = 0;           // Last time
 const float ALPHA = 0.20;             // Smoothing
-const uint8_t BASE_R=255, BASE_G=200, BASE_B=120;  //white
+const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
+
 
 void setup() {
   Serial.begin(115200);
