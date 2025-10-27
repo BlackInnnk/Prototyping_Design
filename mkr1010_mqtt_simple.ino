@@ -55,13 +55,29 @@ const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
 
 // Button!!!
 const int PIN_BTN = 7;  // pin7
+enum Mode {
+  MODE_A_LUX_RED,   // red light
+  MODE_G_CHASE,     // chase light
+  MODE_F_OFF        // turn off
+};
+Mode modeNow = MODE_A_LUX_RED;
 
+bool btnLast = true;  // High->Pressed low
+unsigned long btnTs = 0;
+const unsigned long DEBOUNCE = 50; //ms
+
+// Chase animation
+int chasePos = 0; 
+unsigned long lastStep = 0;
+const unsigned long CHASE_MS = 80;   // the speed of  light
 
 
 void setup() {
   Serial.begin(115200);
   //while (!Serial); // Wait for serial port to connect (useful for debugging)
   Serial.println("Vespera");
+
+  pinMode(PIN_BTN, INPUT_PULLUP); //Initialize button
 
   Wire.begin();
   if (!lightMeter.begin()) {
@@ -108,6 +124,20 @@ void loop() {
   // keep mqtt alive
   mqttClient.loop();
 
+  //Press button: cycle A -> G -> F -> A...
+  bool now = (digitalRead(PIN_BTN) == LOW);        // pressed = LOW
+  if (now != btnLast && millis() - btnTs > DEBOUNCE) {
+    btnTs = millis();
+    if (now == false && btnLast == true) {         // detect button release
+      modeNow = (Mode)((modeNow + 1) % 3);         // A G F three modes
+      Serial.print("Mode -> ");
+      Serial.println(modeNow==MODE_A_LUX_RED ? "A (Lux Red)"
+                    : modeNow==MODE_G_CHASE ? "G (Chase)" : "F (Off)");
+    }
+  }
+  btnLast = now;
+
+
   //change brightness with the lightness
   static unsigned long lastFrame = 0;
   const unsigned long FRAME_MS = 80;  // send every 80ms
@@ -115,40 +145,64 @@ void loop() {
   if (millis() - lastFrame >= FRAME_MS) {
     lastFrame = millis();
 
-    float lux = lightMeter.readLightLevel(); // if <0, then fail
+    //EMA smoothing
+    float lux = lightMeter.readLightLevel();       // if <0, fail
     if (lux >= 0) {
-      // Smooth out
       if (luxEMA < 0) luxEMA = lux;
       float delta = fabsf(lux - luxEMA);
-      float a = (delta > 60.0f) ? 0.95f : 0.80f;   // use 0.8 only if samll change
+      float a = (delta > 60.0f) ? 0.95f : 0.80f;   // react faster when big change
       luxEMA = a*lux + (1.0f - a)*luxEMA;
+    }
 
-      // Map 1~800 lx to 0~1, dark->high value
-      float Lmin=1.0f, Lmax=800.0f;                     // more sensitive
-      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
-      float gamma = 0.7f;
-      uint8_t br = (uint8_t)constrain((int)(255.0f * powf(x, gamma)), 0, 255);
+    //mapping darker -> brighter 
+    float Lmin=1.0f, Lmax=800.0f;
+    float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+    float gamma = 0.7f;                         
+    uint8_t br = (uint8_t)constrain((int)(255.0f * powf(x, gamma)), 0, 255);
 
+    // Base color (red)
+    uint8_t r = (uint16_t)BASE_R * br / 255;
+    uint8_t g = (uint16_t)BASE_G * br / 255;
+    uint8_t b = (uint16_t)BASE_B * br / 255;
 
-      // make all led same colour
-      uint16_t r = (uint16_t)BASE_R * br / 255;
-      uint16_t g = (uint16_t)BASE_G * br / 255;
-      uint16_t b = (uint16_t)BASE_B * br / 255;
-
-      for (int p = 0; p < num_leds; p++) {
-        RGBpayload[p*3 + 0] = (byte)r;
-        RGBpayload[p*3 + 1] = (byte)g;
-        RGBpayload[p*3 + 2] = (byte)b;
+    // Mode!!!
+    if (modeNow == MODE_F_OFF) {
+      // F: all off
+      for (int p=0; p<num_leds; ++p) {
+        RGBpayload[p*3+0] = 0;
+        RGBpayload[p*3+1] = 0;
+        RGBpayload[p*3+2] = 0;
       }
-
-      if (mqttClient.connected()) {
-        mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size, true);
+    }
+    else if (modeNow == MODE_A_LUX_RED) {
+      // A: red light
+      for (int p=0; p<num_leds; ++p) {
+        RGBpayload[p*3+0] = r;
+        RGBpayload[p*3+1] = 0;
+        RGBpayload[p*3+2] = 0;
       }
+    }
+    else { // MODE_G_CHASE
+      // G: red light chase
+      if (millis() - lastStep >= CHASE_MS) {
+        lastStep = millis();
+        chasePos = (chasePos + 1) % num_leds;
+      }
+      for (int p=0; p<num_leds; ++p) {
+        bool on = (p == chasePos);
+        RGBpayload[p*3+0] = on ? r : 0;            //clean background
+        RGBpayload[p*3+1] = on ? g : 0;
+        RGBpayload[p*3+2] = on ? b : 0;
+      }
+    }
 
+    // Publish 
+    if (mqttClient.connected()) {
+      mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size, true);
     }
   }
 
-  delay(10);
+  delay(10);  
 
 
 
