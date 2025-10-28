@@ -1,0 +1,8 @@
+#define SECRET_SSID "CE-Hub-Student"
+#define SECRET_PASS "casa-ce-gagarin-public-service"
+#define SECRET_SSID1 "Innnk_2.4GHz"
+#define SECRET_PASS1 "Bywwo94wo....."
+#define SECRET_SSID2 "Black_Innnk"
+#define SECRET_PASS2 "asdfghjkl..."
+#define SECRET_MQTTUSER "student"
+#define SECRET_MQTTPASS "ce2021-mqtt-forget-whale"

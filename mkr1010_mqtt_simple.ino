@@ -9,6 +9,7 @@
 #include <Wire.h>
 #include <BH1750.h>
 #include <math.h>
+#include "arduino_secrets.h" 
 BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
 
 /*
@@ -19,14 +20,14 @@ BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
  */
-// const char* ssid          = "CE-Hub-Student";
-// const char* password      = "casa-ce-gagarin-public-service";
-// const char* ssid         = "Innnk_2.4GHz";
-// const char* password     = "Bywwo94wo.....";
-const char* ssid         = "Black_Innnk";
-const char* password     = "asdfghjkl...";
-const char* mqtt_username = "student";
-const char* mqtt_password = "ce2021-mqtt-forget-whale";
+const char* ssid          = SECRET_SSID;
+const char* password      = SECRET_PASS;
+const char* ssid1         = SECRET_SSID1;
+const char* password1     = SECRET_PASS1;
+const char* ssid2         = SECRET_SSID2;
+const char* password2     = SECRET_PASS2;
+const char* mqtt_username = SECRET_MQTTUSER;
+const char* mqtt_password = SECRET_MQTTPASS;
 const char* mqtt_server   = "mqtt.cetools.org";
 const int mqtt_port       = 1884;
 
