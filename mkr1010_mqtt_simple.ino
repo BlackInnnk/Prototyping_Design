@@ -19,10 +19,12 @@ BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
 #define SECRET_MQTTUSER "user name - eg student"
 #define SECRET_MQTTPASS "password";
  */
-const char* ssid          = "CE-Hub-Student";
-const char* password      = "casa-ce-gagarin-public-service";
-const char* ssid1         = "Hyperoptic Fibre 3343 5GHz";
-const char* password1     = "icdkxfNjhpK4F3";
+// const char* ssid          = "CE-Hub-Student";
+// const char* password      = "casa-ce-gagarin-public-service";
+// const char* ssid         = "Innnk_2.4GHz";
+// const char* password     = "Bywwo94wo.....";
+const char* ssid         = "Black_Innnk";
+const char* password     = "asdfghjkl...";
 const char* mqtt_username = "student";
 const char* mqtt_password = "ce2021-mqtt-forget-whale";
 const char* mqtt_server   = "mqtt.cetools.org";
@@ -43,6 +45,11 @@ String clientId = ""; // will set once i have mac address so that it is unique
 // to vespera 
 const int num_leds = 72;
 const int payload_size = num_leds * 3; // x3 for RGB
+
+// Grid layout
+const int ROWS = 6;
+const int COLS = 12;
+
 
 // Create the byte array to send in MQTT payload this stores all the colours 
 // in memory so that they can be accessed in for example the rainbow function
@@ -155,7 +162,7 @@ void loop() {
   if (now != btnLast && millis() - btnTs > DEBOUNCE) {
     btnTs = millis();
     if (now == false && btnLast == true) {         // detect button release
-      modeNow = (Mode)((modeNow + 1) % 3);         // three modes
+      modeNow = (Mode)((modeNow + 1) % 7);         // seven modes
       Serial.print("Mode -> ");
       switch (modeNow) {
         case MODE_A_LUX_RED: Serial.println("A (Lux Red)"); break;
@@ -198,6 +205,9 @@ void loop() {
     uint8_t g = (uint16_t)BASE_G * br / 255;
     uint8_t b = (uint16_t)BASE_B * br / 255;
 
+    // Keep brightness the same in mode B/C/D
+    const uint16_t FIXED_SUM = 540;   // (0..765）
+
     // Mode!!!
     if (modeNow == MODE_F_OFF) {
       // F: all off
@@ -216,6 +226,65 @@ void loop() {
       }
     }
 
+    else if (modeNow == MODE_B_R_SWEEP) {
+      // B: Red controlled by lightness, G and B fixed to 0
+      // Darker environment → stronger red light.
+
+      // Map luxEMA to R=0..255
+      float Lmin = 1.0f, Lmax = 800.0f;  // adjust if sensor range differs
+      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+      float gammaR = 0.7f;                // nonlinear response
+      uint8_t Rv = (uint8_t)constrain((int)(255.0f * powf(x, gammaR)), 0, 255);
+
+      // Fill the strip with this red intensity
+      for (int p = 0; p < num_leds; ++p) {
+        RGBpayload[p*3 + 0] = Rv;   // Red follows ambient
+        RGBpayload[p*3 + 1] = 0;    // Green off
+        RGBpayload[p*3 + 2] = 0;    // Blue off
+      }
+    }
+    else if (modeNow == MODE_C_G_SWEEP) {
+      // C: Green controlled by lightness，R/B=0
+      float Lmin=1.0f, Lmax=800.0f;
+      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+      uint8_t Gv = (uint8_t)constrain((int)(255.0f * powf(x, 0.7f)), 0, 255);
+      for (int p=0; p<num_leds; ++p) {
+        RGBpayload[p*3+0] = 0;
+        RGBpayload[p*3+1] = Gv;
+        RGBpayload[p*3+2] = 0;
+      }
+    }
+    else if (modeNow == MODE_D_B_SWEEP) {
+      // D: Blue controlled by lightness，R/G=0
+      float Lmin=1.0f, Lmax=800.0f;
+      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+      uint8_t Bv = (uint8_t)constrain((int)(255.0f * powf(x, 0.7f)), 0, 255);
+      for (int p=0; p<num_leds; ++p) {
+        RGBpayload[p*3+0] = 0;
+        RGBpayload[p*3+1] = 0;
+        RGBpayload[p*3+2] = Bv;
+      }
+    }
+    else if (modeNow == MODE_E_LAYER) {
+      // E：Light up rows one by one
+      float Lmin = 1.0f, Lmax = 800.0f;
+      float x = 1.0f - (constrain(luxEMA, Lmin, Lmax) - Lmin) / (Lmax - Lmin);
+      int lit = (int)constrain((int)roundf(x * num_leds), 0, num_leds); // 0..72
+
+      const uint8_t WR = 255, WG = 180, WB = 60; // warm yellow light
+
+      int k = 0; // numbers of already lighted
+      for (int r = 0; r < ROWS; ++r) {
+        for (int c = 0; c < COLS; ++c) {
+          int idx = r + ROWS * c;         
+          bool on = (k < lit);
+          RGBpayload[idx*3 + 0] = on ? WR : 0;
+          RGBpayload[idx*3 + 1] = on ? WG : 0;
+          RGBpayload[idx*3 + 2] = on ? WB : 0;
+          ++k;
+        }
+      }
+    }
     else { // MODE_G_LOOP
       // colour loop
       float hue = fmodf((millis() % HUE_CYCLE_MS) * (360.0f / HUE_CYCLE_MS), 360.0f);
