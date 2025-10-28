@@ -22,10 +22,6 @@ BH1750 lightMeter(BH1750::CONTINUOUS_LOW_RES_MODE);
  */
 const char* ssid          = SECRET_SSID;
 const char* password      = SECRET_PASS;
-const char* ssid1         = SECRET_SSID1;
-const char* password1     = SECRET_PASS1;
-const char* ssid2         = SECRET_SSID2;
-const char* password2     = SECRET_PASS2;
 const char* mqtt_username = SECRET_MQTTUSER;
 const char* mqtt_password = SECRET_MQTTPASS;
 const char* mqtt_server   = "mqtt.cetools.org";
@@ -81,7 +77,6 @@ void hsvToRgb(float h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b){
 }
 
 float luxEMA = -1.0;                 // Exponential Moving Average
-const float ALPHA = 0.80;             // Smoothing
 const uint8_t BASE_R = 255, BASE_G = 180, BASE_B = 60; // warm yellow light
 
 // Button!!!
@@ -110,6 +105,7 @@ void setup() {
   Serial.begin(115200);
   //while (!Serial); // Wait for serial port to connect (useful for debugging)
   Serial.println("Vespera");
+  // start light sensor and wifi setup
 
   pinMode(PIN_BTN, INPUT_PULLUP); //Initialize button
 
@@ -117,10 +113,11 @@ void setup() {
   if (!lightMeter.begin()) {
     Serial.println("BH1750 init failed, check wiring.");
   } else {
-    lightMeter.configure(BH1750::CONTINUOUS_LOW_RES_MODE); // change quickly
+    lightMeter.configure(BH1750::CONTINUOUS_LOW_RES_MODE); // use faster light sensor mode
     Serial.println("BH1750 ready (LOW_RES).");
   }
-  send_all_off(); //turn off all the light after open
+  send_all_off(); //turn off all the light when start
+  // make sure lights are clear before running
 
 
 
@@ -147,6 +144,8 @@ void setup() {
 }
  
 void loop() {
+  // keep checking wifi and mqtt connection
+  // if not connected then try to reconnect
   // Reconnect if necessary
   if (!mqttClient.connected()) {
     reconnectMQTT();
@@ -158,8 +157,11 @@ void loop() {
   // keep mqtt alive
   mqttClient.loop();
 
-  //Press button: cycle A -> G -> F -> A...
+  //Press button to go through all modes
   bool now = (digitalRead(PIN_BTN) == LOW);        // pressed = LOW
+
+  // change mode each time button is pressed
+  // print the current mode to serial monitor
   if (now != btnLast && millis() - btnTs > DEBOUNCE) {
     btnTs = millis();
     if (now == false && btnLast == true) {         // detect button release
@@ -187,6 +189,8 @@ void loop() {
     lastFrame = millis();
 
     //EMA smoothing
+    // read light value from BH1750 sensor
+    // higher lux -> brighter environment
     float lux = lightMeter.readLightLevel();       // if <0, fail
     if (lux >= 0) {
       if (luxEMA < 0) luxEMA = lux;
@@ -206,8 +210,6 @@ void loop() {
     uint8_t g = (uint16_t)BASE_G * br / 255;
     uint8_t b = (uint16_t)BASE_B * br / 255;
 
-    // Keep brightness the same in mode B/C/D
-    const uint16_t FIXED_SUM = 540;   // (0..765）
 
     // Mode!!!
     if (modeNow == MODE_F_OFF) {
@@ -228,7 +230,7 @@ void loop() {
     }
 
     else if (modeNow == MODE_B_R_SWEEP) {
-      // B: Red controlled by lightness, G and B fixed to 0
+      // B: red gets brighter when it's darker, G and B fixed to 0
       // Darker environment → stronger red light.
 
       // Map luxEMA to R=0..255
@@ -309,7 +311,7 @@ void loop() {
 
 
     // Publish 
-    if (mqttClient.connected()) {
+    if (mqttClient.connected()) { // send color data to vespera web display through MQTT
       mqttClient.publish(mqtt_topic.c_str(), RGBpayload, payload_size, true);
     }
   }
@@ -357,7 +359,7 @@ void send_all_off() {
   }
 }
 
-
+// print MAC address to serial monitor for debugging
 void printMacAddress(byte mac[]) {
   for (int i = 5; i >= 0; i--) {
     if (mac[i] < 16) {
