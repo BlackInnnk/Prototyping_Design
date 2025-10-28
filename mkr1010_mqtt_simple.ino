@@ -81,7 +81,7 @@ void hsvToRgb(float h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b){
 
 float luxEMA = -1.0;                 // Exponential Moving Average
 const float ALPHA = 0.80;             // Smoothing
-const uint8_t BASE_R = 255, BASE_G = 0, BASE_B = 0; //red light
+const uint8_t BASE_R = 255, BASE_G = 180, BASE_B = 60; // warm yellow light
 
 // Button!!!
 const int PIN_BTN = 7;  // pin7
@@ -218,11 +218,11 @@ void loop() {
       }
     }
     else if (modeNow == MODE_A_LUX_RED) {
-      // A: red light
+      // A: warm yellow controlled by lightness
       for (int p=0; p<num_leds; ++p) {
         RGBpayload[p*3+0] = r;
-        RGBpayload[p*3+1] = 0;
-        RGBpayload[p*3+2] = 0;
+        RGBpayload[p*3+1] = g;
+        RGBpayload[p*3+2] = b;
       }
     }
 
