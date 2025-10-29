@@ -28,6 +28,17 @@ Below is the schematic showing how the BH1750 sensor and push button are connect
 
 ---
 
+## Physical Prototype
+
+The physical prototype was designed and built using the Arduino MKR WiFi 1010 board, a BH1750 light sensor, and a push button.  
+The images below show the front view and the internal wiring layout of the device.
+
+| Front View | Internal View 1 | Internal View 2 |
+|-------------|----------------|----------------|
+| ![Front](prototype_front.jpg) | ![Inside 1](prototype_inside1.jpg) | ![Inside 2](prototype_inside2.jpg) |
+
+---
+
 ## 🌐 Network & Communication
 
 The MKR1010 connects to Wi-Fi using **WiFiNINA** and publishes light data over **MQTT**  
