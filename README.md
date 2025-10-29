@@ -49,8 +49,8 @@ All Wi-Fi and MQTT credentials are stored in a separate `arduino_secrets.h` file
 ```cpp
 #define SECRET_SSID "WiFi name"
 #define SECRET_PASS "WiFi password"
-#define SECRET_MQTTUSER "student"
-#define SECRET_MQTTPASS "ce2021-mqtt-forget-whale"
+#define SECRET_MQTTUSER "MQTT user name"
+#define SECRET_MQTTPASS "MQTT password"
 ```
 
 ---
