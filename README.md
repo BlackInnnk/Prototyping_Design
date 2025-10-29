@@ -20,6 +20,14 @@ A push button lets the user switch between different lighting modes.
 
 ---
 
+### Circuit Diagram
+
+Below is the schematic showing how the BH1750 sensor and push button are connected to the Arduino MKR WiFi 1010:
+
+![Circuit Diagram](schematic.png)
+
+---
+
 ## 🌐 Network & Communication
 
 The MKR1010 connects to Wi-Fi using **WiFiNINA** and publishes light data over **MQTT**  
