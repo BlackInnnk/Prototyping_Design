@@ -137,3 +137,17 @@ Supervisor: *Duncan Wilson*
 October 2025  
 
 ---
+
+## 🧩 Design Process & Reflection
+
+This project was inspired by the idea of creating a simple but reactive light interface that could sense its environment and respond in real time.  
+I started by exploring basic examples of MQTT communication and gradually integrated the BH1750 light sensor to make the brightness adaptive.
+
+During the development, I learned how to smooth sensor data using exponential moving averages and how to map real-world light intensity into RGB brightness values.  
+The biggest challenge was getting stable Wi-Fi and MQTT connections, especially when switching networks between the lab and home.  
+Troubleshooting these connections helped me understand the importance of serial debugging and network diagnostics in IoT projects.
+
+If I had more time, I would like to make the light system more interactive — for example, adding gesture or proximity sensors instead of just a button, or allowing real-time control through a web dashboard.  
+This project taught me a lot about physical computing and IoT systems, and how sensing and actuation can be combined to create responsive environments.
+
+---
