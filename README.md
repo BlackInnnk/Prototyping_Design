@@ -109,12 +109,21 @@ Each press of the button switches to the next mode in sequence.
 
 ## 🌈 Brightness & Color Mapping
 
+- 1. EMA Filter: Used to smooth light data. Fast reaction: $\alpha=0.95$. Slow reaction: $\alpha=0.80$.
+  2. Gamma Correction: Used for perceptual mapping. Value: $\gamma=0.7\text{f}$.
 - Ambient light values (`lux`) are smoothed using EMA:  
   ```
   luxEMA = α * lux + (1 - α) * luxEMA
   ```
 - Then mapped to brightness using a nonlinear gamma function for perceptual balance.  
 - Lower light → higher brightness (auto-dimming effect).  
+
+---
+
+## ⚠️ Safety & Credentials Setup
+1. Do not upload arduino_secrets.h: This file contains sensitive data (Wi-Fi, MQTT password).
+2. Action Required: Create a .gitignore file and add arduino_secrets.h to it.
+3. Required Format: User must create arduino_secrets.h locally using the format specified in the code.
 
 ---
 
